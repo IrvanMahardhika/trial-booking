@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { BookingStatus } from "@prisma/client";
 import { BookingService } from "@/lib/booking-service";
 import { prisma } from "@/lib/db";
+import { hashPassword } from "@/lib/password";
 
 const bookingService = new BookingService(prisma);
 
@@ -18,7 +19,7 @@ async function seedBaseData() {
     data: {
       name: "Test Parent",
       email: "parent@example.com",
-      password: "demo123",
+      password: await hashPassword("demo123"),
       students: {
         create: [
           { name: "Student A" },

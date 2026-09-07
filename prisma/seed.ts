@@ -1,4 +1,5 @@
 import { BookingStatus, PrismaClient } from "@prisma/client";
+import { hashPassword } from "../src/lib/password";
 
 const prisma = new PrismaClient();
 
@@ -11,11 +12,13 @@ async function main() {
   await prisma.parent.deleteMany();
   await prisma.trialClass.deleteMany();
 
+  const hashedDemoPassword = await hashPassword(DEMO_PASSWORD);
+
   const parentA = await prisma.parent.create({
     data: {
       name: "Alice Nguyen",
       email: "alice@example.com",
-      password: DEMO_PASSWORD,
+      password: hashedDemoPassword,
       students: {
         create: [
           { name: "Linh Nguyen" },
@@ -30,7 +33,7 @@ async function main() {
     data: {
       name: "Bob Santos",
       email: "bob@example.com",
-      password: DEMO_PASSWORD,
+      password: hashedDemoPassword,
       students: {
         create: [
           { name: "Sofia Santos" },
@@ -45,7 +48,7 @@ async function main() {
     data: {
       name: "Carla Ortiz",
       email: "carla@example.com",
-      password: DEMO_PASSWORD,
+      password: hashedDemoPassword,
       students: {
         create: [{ name: "Emma Ortiz" }],
       },

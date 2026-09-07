@@ -1,6 +1,7 @@
 import { BookingStatus, type Booking, type PrismaClient } from "@prisma/client";
 import { BookingError } from "@/lib/errors";
 import { mockPayment, type PaymentResult } from "@/lib/payment";
+import { verifyPassword } from "@/lib/password";
 
 const ACTIVE_STATUSES: BookingStatus[] = [
   BookingStatus.pending_payment,
@@ -51,7 +52,13 @@ export class BookingService {
       select: { id: true, name: true, email: true, password: true },
     });
 
-    if (!parent || parent.password !== password) {
+    if (!parent) {
+      throw new BookingError("Invalid email or password", "UNAUTHORIZED");
+    }
+
+    const passwordMatches = await verifyPassword(password, parent.password);
+
+    if (!passwordMatches) {
       throw new BookingError("Invalid email or password", "UNAUTHORIZED");
     }
 
