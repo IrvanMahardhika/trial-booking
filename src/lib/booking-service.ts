@@ -37,12 +37,11 @@ export class BookingService {
     }));
   }
 
-  async listStudents() {
+  async listStudents(parentId: string) {
     return this.db.student.findMany({
+      where: { parentId },
       orderBy: { name: "asc" },
-      include: {
-        parent: { select: { id: true, name: true, email: true } },
-      },
+      select: { id: true, name: true },
     });
   }
 
