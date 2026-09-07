@@ -5,11 +5,16 @@ import { formatClassDate } from "@/lib/format";
 import { getSessionParent } from "@/lib/auth";
 import { bookingService } from "@/lib/services";
 
-export default async function BookPage() {
+type BookPageProps = PageProps<"/book">;
+
+export default async function BookPage({ searchParams }: BookPageProps) {
   const parent = await getSessionParent();
   if (!parent) {
     return null;
   }
+
+  const params = await searchParams;
+  const hasInvalidInput = params.error === "invalid";
 
   const trialClasses = await bookingService.listTrialClasses();
 
@@ -18,6 +23,12 @@ export default async function BookPage() {
       title="Book a trial class"
       description="Choose one of your children and an available trial class."
     >
+      {hasInvalidInput ? (
+        <p className="mb-5 max-w-xl rounded-2xl border border-danger/20 bg-red-50 px-4 py-3 text-sm text-danger">
+          Please select a child and a trial class before continuing.
+        </p>
+      ) : null}
+
       <form
         action={createBookingAction}
         className="max-w-xl space-y-5 rounded-2xl border border-border bg-card p-6 shadow-sm"

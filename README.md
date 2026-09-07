@@ -179,6 +179,7 @@ Inside `completePayment` (transaction):
 | Capacity at payment time | Service transaction (last-seat race) |
 | Payment failure handling | Service transaction |
 | Class appears full in UI | UI disables full classes in dropdown |
+| Form and API input validation | Zod schemas in `src/lib/schemas.ts` (login, booking create, payment) |
 | Roster accuracy | Service — only `confirmed` bookings returned |
 
 ### Auth and security

@@ -1,11 +1,7 @@
-import { z } from "zod";
 import { requireSessionParent } from "@/lib/auth";
 import { handleApiError, jsonOk } from "@/lib/api-utils";
+import { payBookingSchema } from "@/lib/schemas";
 import { bookingService } from "@/lib/services";
-
-const payBookingSchema = z.object({
-  shouldSucceed: z.boolean(),
-});
 
 type RouteContext = {
   params: Promise<{ id: string }>;

@@ -1,12 +1,7 @@
-import { z } from "zod";
 import { requireSessionParent } from "@/lib/auth";
 import { handleApiError, jsonOk } from "@/lib/api-utils";
+import { createBookingSchema } from "@/lib/schemas";
 import { bookingService } from "@/lib/services";
-
-const createBookingSchema = z.object({
-  studentId: z.string().min(1),
-  trialClassId: z.string().min(1),
-});
 
 export async function POST(request: Request) {
   try {
