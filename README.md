@@ -1,36 +1,119 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Ottodot Trial Booking
 
-## Getting Started
+**This directory is the project root.** Clone or submit this repo as-is (`trial-booking/`); the parent `ottodot/` folder is only a local workspace wrapper.
 
-First, run the development server:
+A minimal TypeScript full-stack slice for Ottodot's trial booking take-home. Focus is on booking invariants, payment edge cases, and the last-seat race.
+
+## Stack
+
+- Next.js (App Router)
+- TypeScript
+- Prisma + SQLite
+- Vitest
+
+## Setup
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run db:setup
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+`db:setup` generates the Prisma client, applies the schema, and runs the seed script.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Scripts
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Command | Description |
+|---|---|
+| `npm run dev` | Start the Next.js dev server |
+| `npm test` | Run booking service tests |
+| `npm run db:setup` | Generate client, push schema, seed data |
+| `npm run db:seed` | Re-run seed only |
 
-## Learn More
+## What is implemented
 
-To learn more about Next.js, take a look at the following resources:
+- Prisma schema for parents, students, trial classes, bookings, and payment attempts
+- `BookingService` with booking creation, mock payment completion, and roster lookup
+- Seed data covering available seats, nearly-full class, duplicate scenario, and payment failure
+- Vitest coverage for duplicate prevention, capacity limits, payment failure, and last-seat race
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Seed highlights
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+After seeding:
 
-## Deploy on Vercel
+- **Intro to Chemistry** — empty class with 4 available seats
+- **Fractions Fun** — exactly 3 confirmed students (1 seat left)
+- **Space Science** — 3 confirmed students (1 seat left) for last-seat race demos
+- **Intro to Chemistry** — Emma Ortiz already has a `pending_payment` booking for duplicate-booking demos
+- **Plant Biology** — Minh Nguyen has a `payment_failed` booking not on the roster
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Backend notes (summary)
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### Booking statuses
+
+- `pending_payment` — created, awaiting payment
+- `confirmed` — paid and counted on roster
+- `payment_failed` — payment declined or seat lost at payment time
+- `cancelled` — reserved for future use
+
+### Last-seat race approach
+
+Both users may reach `pending_payment` for the final seat. Confirmation happens inside a database transaction that:
+
+1. records the payment attempt
+2. counts current `confirmed` bookings for the class
+3. confirms only if capacity remains
+
+SQLite serializes concurrent transactions, so only one late payer can win the last seat.
+
+### Where checks live
+
+| Concern | Layer |
+|---|---|
+| Duplicate child + class | Service + query guard |
+| Capacity at payment time | Service transaction |
+| Payment failure handling | Service transaction |
+| Class appears full in UI | UI hint only (not implemented yet) |
+
+## API routes
+
+After `npm run dev`, the booking flow can be exercised via HTTP:
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/trial-classes` | List trial classes with seat availability |
+| `GET` | `/api/students` | List students (children) |
+| `POST` | `/api/bookings` | Create booking (`{ "studentId", "trialClassId" }`) |
+| `GET` | `/api/bookings/:id` | Get booking status |
+| `POST` | `/api/bookings/:id/pay` | Submit mock payment (`{ "shouldSucceed": true \| false }`) |
+| `GET` | `/api/trial-classes/:id/roster` | Admin/teacher confirmed roster |
+
+Copy `.env.example` to `.env` before running setup.
+
+### Example flow
+
+```bash
+# List classes and students
+curl http://localhost:3000/api/trial-classes
+curl http://localhost:3000/api/students
+
+# Book and pay
+curl -X POST http://localhost:3000/api/bookings \
+  -H 'Content-Type: application/json' \
+  -d '{"studentId":"<student-id>","trialClassId":"<class-id>"}'
+
+curl -X POST http://localhost:3000/api/bookings/<booking-id>/pay \
+  -H 'Content-Type: application/json' \
+  -d '{"shouldSucceed":true}'
+
+curl http://localhost:3000/api/bookings/<booking-id>
+curl http://localhost:3000/api/trial-classes/<class-id>/roster
+```
+
+## Next steps
+
+- Minimal parent booking UI and admin roster page
+- README design section expansion (assumptions, monitoring, time spent)
+
+## Time spent
+
+_Scaffold only — update before submission._
