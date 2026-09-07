@@ -131,7 +131,7 @@ Parent ──< Student ──< Booking >── TrialClass
 
 | Method | Path | Description |
 |---|---|---|
-| `GET` | `/api/trial-classes` | List classes with seat availability |
+| `GET` | `/api/trial-classes` | List classes with seat availability (requires `parent_session` cookie) |
 | `GET` | `/api/students` | List signed-in parent's children (requires `parent_session` cookie) |
 | `POST` | `/api/bookings` | Create booking (requires `parent_session` cookie) |
 | `GET` | `/api/bookings/:id` | Get booking status |
