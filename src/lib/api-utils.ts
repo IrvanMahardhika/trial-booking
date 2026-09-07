@@ -30,6 +30,10 @@ export function handleApiError(error: unknown) {
     );
   }
 
+  if (error instanceof SyntaxError) {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+
   console.error(error);
   return NextResponse.json({ error: "Internal server error" }, { status: 500 });
 }
