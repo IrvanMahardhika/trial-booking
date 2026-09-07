@@ -74,6 +74,34 @@ SQLite serializes concurrent transactions, so only one late payer can win the la
 | Payment failure handling | Service transaction |
 | Class appears full in UI | UI hint only (not implemented yet) |
 
+## Pages
+
+After `npm run dev`, open `http://localhost:3000/login`.
+
+| Path | Description |
+|---|---|
+| `/login` | Sign in with email and password |
+| `/` | Parent dashboard — children, bookings, available classes |
+| `/book` | Book a trial class for a child |
+| `/bookings/:id` | Booking status and mock payment |
+| `/admin/roster` | Teacher/admin view of confirmed rosters |
+
+### Demo parent accounts
+
+Sign in at `/login` with any of these seed parent accounts:
+
+| Email | Password | Children |
+|---|---|---|
+| `alice@example.com` | `demo123` | Linh Nguyen, Minh Nguyen |
+| `bob@example.com` | `demo123` | Sofia Santos, Diego Santos |
+| `carla@example.com` | `demo123` | Emma Ortiz |
+
+### Admin roster
+
+Open `/admin/roster` to view confirmed students per trial class. This page is intended for teachers or ops staff and does not require parent login. It shows only `confirmed` bookings — pending or failed payments are excluded.
+
+You can also reach the admin roster from the parent app header after signing in.
+
 ## API routes
 
 After `npm run dev`, the booking flow can be exercised via HTTP:
@@ -111,7 +139,6 @@ curl http://localhost:3000/api/trial-classes/<class-id>/roster
 
 ## Next steps
 
-- Minimal parent booking UI and admin roster page
 - README design section expansion (assumptions, monitoring, time spent)
 
 ## Time spent

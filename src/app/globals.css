@@ -1,26 +1,98 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #fff6e5;
+  --foreground: #15172b;
+  --card: #ffffff;
+  --muted: #555770;
+  --border: #ede7dc;
+  --brand: #e73449;
+  --brand-hover: #c72236;
+  --accent-sky: #6acce1;
+  --accent-mustard: #fbae24;
+  --accent-mint: #83c341;
+  --success: #6ba62f;
+  --warning: #e69612;
+  --danger: #e73449;
+  --shadow-sm: 0 1px 0 rgba(21, 23, 43, 0.04), 0 4px 14px -6px rgba(21, 23, 43, 0.08);
+  --shadow: 0 2px 0 rgba(21, 23, 43, 0.05), 0 24px 50px -22px rgba(21, 23, 43, 0.18);
+  --radius: 18px;
+  --radius-lg: 28px;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-card: var(--card);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-accent-sky: var(--accent-sky);
+  --color-accent-mustard: var(--accent-mustard);
+  --color-accent-mint: var(--accent-mint);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --font-sans: var(--font-jakarta);
+  --font-display: var(--font-fraunces);
+  --radius-otto: var(--radius);
+  --radius-otto-lg: var(--radius-lg);
+  --shadow-otto: var(--shadow);
+  --shadow-otto-sm: var(--shadow-sm);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), system-ui, sans-serif;
+}
+
+.font-display {
+  font-family: var(--font-display), Georgia, serif;
+}
+
+.otto-card {
+  border-radius: var(--radius-lg);
+  background: var(--card);
+  box-shadow: var(--shadow-sm);
+}
+
+.otto-input {
+  width: 100%;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: #fff;
+  padding: 0.75rem 0.875rem;
+  font-size: 0.95rem;
+  color: var(--foreground);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.otto-input:focus {
+  outline: none;
+  border-color: rgba(231, 52, 73, 0.45);
+  box-shadow: 0 0 0 4px rgba(231, 52, 73, 0.1);
+}
+
+.otto-button-primary {
+  display: inline-flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--brand);
+  padding: 0.8rem 1rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #fff;
+  transition: background-color 0.15s ease, transform 0.15s ease;
+}
+
+.otto-button-primary:hover {
+  background: var(--brand-hover);
+}
+
+.otto-button-primary:active {
+  transform: translateY(1px);
 }

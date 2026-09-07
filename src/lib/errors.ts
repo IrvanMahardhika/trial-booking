@@ -6,7 +6,8 @@ export class BookingError extends Error {
       | "DUPLICATE_BOOKING"
       | "CLASS_FULL"
       | "INVALID_STATUS"
-      | "PAYMENT_FAILED",
+      | "PAYMENT_FAILED"
+      | "UNAUTHORIZED",
   ) {
     super(message);
     this.name = "BookingError";

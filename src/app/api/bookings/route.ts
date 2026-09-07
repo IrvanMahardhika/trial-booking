@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { requireSessionParent } from "@/lib/auth";
 import { handleApiError, jsonOk } from "@/lib/api-utils";
 import { bookingService } from "@/lib/services";
 
@@ -9,8 +10,10 @@ const createBookingSchema = z.object({
 
 export async function POST(request: Request) {
   try {
+    const parent = await requireSessionParent();
     const body = createBookingSchema.parse(await request.json());
-    const booking = await bookingService.createBooking(
+    const booking = await bookingService.createBookingForParent(
+      parent.id,
       body.studentId,
       body.trialClassId,
     );

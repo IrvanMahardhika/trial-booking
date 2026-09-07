@@ -18,6 +18,7 @@ async function seedBaseData() {
     data: {
       name: "Test Parent",
       email: "parent@example.com",
+      password: "demo123",
       students: {
         create: [
           { name: "Student A" },

@@ -8,6 +8,7 @@ const BOOKING_ERROR_STATUS: Record<BookingError["code"], number> = {
   CLASS_FULL: 409,
   INVALID_STATUS: 400,
   PAYMENT_FAILED: 402,
+  UNAUTHORIZED: 401,
 };
 
 export function jsonOk<T>(data: T, status = 200) {

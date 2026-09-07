@@ -9,7 +9,7 @@ const ACTIVE_STATUSES: BookingStatus[] = [
 
 export type BookingWithRelations = Booking & {
   student: { id: string; name: string };
-  trialClass: { id: string; title: string; capacity: number };
+  trialClass: { id: string; title: string; capacity: number; scheduledAt: Date };
 };
 
 export class BookingService {
@@ -45,17 +45,100 @@ export class BookingService {
     });
   }
 
+  async authenticateParent(email: string, password: string) {
+    const parent = await this.db.parent.findUnique({
+      where: { email },
+      select: { id: true, name: true, email: true, password: true },
+    });
+
+    if (!parent || parent.password !== password) {
+      throw new BookingError("Invalid email or password", "UNAUTHORIZED");
+    }
+
+    return {
+      id: parent.id,
+      name: parent.name,
+      email: parent.email,
+    };
+  }
+
+  async listParents() {
+    return this.db.parent.findMany({
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, email: true },
+    });
+  }
+
+  async getParentProfile(parentId: string) {
+    const parent = await this.db.parent.findUnique({
+      where: { id: parentId },
+      include: {
+        students: {
+          orderBy: { name: "asc" },
+          include: {
+            bookings: {
+              include: {
+                trialClass: {
+                  select: { id: true, title: true, scheduledAt: true, capacity: true },
+                },
+              },
+              orderBy: { createdAt: "desc" },
+            },
+          },
+        },
+      },
+    });
+
+    if (!parent) {
+      throw new BookingError("Parent not found", "NOT_FOUND");
+    }
+
+    return parent;
+  }
+
+  async createBookingForParent(
+    parentId: string,
+    studentId: string,
+    trialClassId: string,
+  ) {
+    const student = await this.db.student.findFirst({
+      where: { id: studentId, parentId },
+    });
+
+    if (!student) {
+      throw new BookingError(
+        "Student not found for this parent account",
+        "UNAUTHORIZED",
+      );
+    }
+
+    return this.createBooking(studentId, trialClassId);
+  }
+
   async getBooking(bookingId: string): Promise<BookingWithRelations> {
     const booking = await this.db.booking.findUnique({
       where: { id: bookingId },
       include: {
         student: { select: { id: true, name: true } },
-        trialClass: { select: { id: true, title: true, capacity: true } },
+        trialClass: { select: { id: true, title: true, capacity: true, scheduledAt: true } },
       },
     });
 
     if (!booking) {
       throw new BookingError("Booking not found", "NOT_FOUND");
+    }
+
+    return booking;
+  }
+
+  async getBookingForParent(parentId: string, bookingId: string) {
+    const booking = await this.getBooking(bookingId);
+    const student = await this.db.student.findFirst({
+      where: { id: booking.studentId, parentId },
+    });
+
+    if (!student) {
+      throw new BookingError("Booking not found for this account", "UNAUTHORIZED");
     }
 
     return booking;
@@ -150,7 +233,7 @@ export class BookingService {
       },
       include: {
         student: { select: { id: true, name: true } },
-        trialClass: { select: { id: true, title: true, capacity: true } },
+        trialClass: { select: { id: true, title: true, capacity: true, scheduledAt: true } },
       },
     });
 
@@ -163,7 +246,7 @@ export class BookingService {
         where: { id: bookingId },
         include: {
           student: { select: { id: true, name: true } },
-          trialClass: { select: { id: true, title: true, capacity: true } },
+          trialClass: { select: { id: true, title: true, capacity: true, scheduledAt: true } },
         },
       });
 
@@ -192,7 +275,7 @@ export class BookingService {
           data: { status: BookingStatus.payment_failed },
           include: {
             student: { select: { id: true, name: true } },
-            trialClass: { select: { id: true, title: true, capacity: true } },
+            trialClass: { select: { id: true, title: true, capacity: true, scheduledAt: true } },
           },
         });
 
@@ -212,7 +295,7 @@ export class BookingService {
           data: { status: BookingStatus.payment_failed },
           include: {
             student: { select: { id: true, name: true } },
-            trialClass: { select: { id: true, title: true, capacity: true } },
+            trialClass: { select: { id: true, title: true, capacity: true, scheduledAt: true } },
           },
         });
 
@@ -224,7 +307,7 @@ export class BookingService {
         data: { status: BookingStatus.confirmed },
         include: {
           student: { select: { id: true, name: true } },
-          trialClass: { select: { id: true, title: true, capacity: true } },
+          trialClass: { select: { id: true, title: true, capacity: true, scheduledAt: true } },
         },
       });
 

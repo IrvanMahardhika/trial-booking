@@ -2,6 +2,8 @@ import { BookingStatus, PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
+const DEMO_PASSWORD = "demo123";
+
 async function main() {
   await prisma.paymentAttempt.deleteMany();
   await prisma.booking.deleteMany();
@@ -13,6 +15,7 @@ async function main() {
     data: {
       name: "Alice Nguyen",
       email: "alice@example.com",
+      password: DEMO_PASSWORD,
       students: {
         create: [
           { name: "Linh Nguyen" },
@@ -27,6 +30,7 @@ async function main() {
     data: {
       name: "Bob Santos",
       email: "bob@example.com",
+      password: DEMO_PASSWORD,
       students: {
         create: [
           { name: "Sofia Santos" },
@@ -41,6 +45,7 @@ async function main() {
     data: {
       name: "Carla Ortiz",
       email: "carla@example.com",
+      password: DEMO_PASSWORD,
       students: {
         create: [{ name: "Emma Ortiz" }],
       },
