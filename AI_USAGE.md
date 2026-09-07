@@ -11,7 +11,8 @@ This document describes how AI tools were used while building the Ottodot trial 
 
 - Scaffolding the Next.js + Prisma + Vitest project structure
 - Drafting the Prisma schema (`Parent`, `Student`, `TrialClass`, `Booking`, `PaymentAttempt`)
-- Implementing `BookingService` with transactional payment confirmation
+- Implementing `BookingService` with transactional payment confirmation and `seat_lost` handling for last-seat race losers
+- Adding `refundPayment` mock hook for captured-but-unconfirmed payments
 - Writing Vitest cases for duplicate booking, capacity limits, payment failure, and last-seat race
 - Creating seed data for demo edge cases
 - Adding API route handlers, shared error handling, and Zod input validation (`src/lib/schemas.ts`)
@@ -23,7 +24,7 @@ This document describes how AI tools were used while building the Ottodot trial 
 
 ## Where AI helped me move faster
 
-AI quickly produced the **last-seat race test** and the transactional `completePayment` flow: count confirmed bookings inside a DB transaction, confirm only if capacity remains, otherwise mark `payment_failed`. That saved time on boilerplate while I focused on whether the invariant was correct under SQLite's write locking.
+AI quickly produced the **last-seat race test** and the transactional `completePayment` flow: count confirmed bookings inside a DB transaction, confirm only if capacity remains, otherwise mark `seat_lost` and call the `refundPayment` stub. That saved time on boilerplate while I focused on whether the invariant was correct under SQLite's write locking.
 
 AI also scaffolded the full page structure (parent layout, server actions, form flows) in one pass, which let me spend more time reviewing business logic than wiring React forms.
 
@@ -40,6 +41,7 @@ For the later auth hardening pass, AI helped wire up `hashPassword` / `verifyPas
 - **Demo credentials on login page** — Moved demo account info to README only, per preference for a standard login form.
 - **Plain-text passwords and raw parent ID cookies** — Early demo auth stored passwords in plain text and put the database parent ID directly in the session cookie. I upgraded to scrypt hashes in seed data and JWT-signed `parent_session` cookies, while keeping the demo login UX unchanged (`demo123` still works in the UI).
 - **Open parent API routes** — Initially some read endpoints were public. I tightened `GET /api/students`, `GET /api/trial-classes`, and booking routes to require a valid parent session.
+- **`payment_failed` for last-seat losers** — Early versions marked last-seat race losers as `payment_failed`, which conflated card declines with “paid but class full.” I split this into `seat_lost` plus a `refundPayment` stub so parent messaging and monitoring can distinguish the two cases.
 
 ## What I would change about my AI workflow next time
 
@@ -51,7 +53,7 @@ For the later auth hardening pass, AI helped wire up `hashPassword` / `verifyPas
 
 - `npm run db:setup` — schema push and seed data load cleanly
 - `npm test` — **12 tests** across three files:
-  - `tests/booking-service.test.ts` (5) — duplicate prevention, capacity, payment failure, last-seat race
+  - `tests/booking-service.test.ts` (5) — duplicate prevention, capacity, payment failure, last-seat race (`seat_lost`)
   - `tests/auth.test.ts` (3) — JWT sign/verify, expiry, tamper rejection
   - `tests/rate-limit.test.ts` (4) — limit threshold, window reset, clear on success
 - `npm run build` — production TypeScript check passes
@@ -59,6 +61,7 @@ For the later auth hardening pass, AI helped wire up `hashPassword` / `verifyPas
   - Sign in as seed parents at `/login` with `demo123`
   - Book a class, pay successfully, confirm status shows `confirmed`
   - Simulate card declined, confirm status shows `payment_failed` and child is not on roster
+  - (Optional) Last-seat race on Space Science — slower payer sees `seat_lost` with refund message
   - View `/admin/roster` — only confirmed students listed
   - Attempt duplicate booking for Emma on Intro to Chemistry — blocked
   - Trigger repeated failed logins to confirm rate-limit redirect (`/login?error=rate_limited`)

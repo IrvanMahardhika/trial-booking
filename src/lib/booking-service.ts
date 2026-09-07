@@ -1,6 +1,6 @@
 import { BookingStatus, type Booking, type PrismaClient } from "@/generated/prisma";
 import { BookingError } from "@/lib/errors";
-import { mockPayment, type PaymentResult } from "@/lib/payment";
+import { mockPayment, refundPayment, type PaymentResult } from "@/lib/payment";
 import { verifyPassword } from "@/lib/password";
 
 const ACTIVE_STATUSES: BookingStatus[] = [
@@ -296,16 +296,21 @@ export class BookingService {
       });
 
       if (confirmedCount >= booking.trialClass.capacity) {
-        const failedBooking = await tx.booking.update({
+        const seatLostBooking = await tx.booking.update({
           where: { id: bookingId },
-          data: { status: BookingStatus.payment_failed },
+          data: { status: BookingStatus.seat_lost },
           include: {
             student: { select: { id: true, name: true } },
             trialClass: { select: { id: true, title: true, capacity: true, scheduledAt: true } },
           },
         });
 
-        return failedBooking;
+        await refundPayment({
+          bookingId,
+          reason: "Class was full before this booking could be confirmed",
+        });
+
+        return seatLostBooking;
       }
 
       const confirmedBooking = await tx.booking.update({

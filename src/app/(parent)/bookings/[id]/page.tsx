@@ -72,6 +72,14 @@ export default async function BookingPage({ params }: BookingPageProps) {
           </p>
         ) : null}
 
+        {booking.status === "seat_lost" ? (
+          <p className="rounded-lg bg-orange-50 px-3 py-2 text-sm text-warning">
+            Your payment went through, but the last seat was taken before we
+            could confirm this booking. A full refund has been issued and the
+            child is not on the confirmed roster.
+          </p>
+        ) : null}
+
         <Link
           href="/"
           className="inline-flex text-sm font-medium text-brand hover:text-brand-hover"

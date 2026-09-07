@@ -37,6 +37,7 @@ enum BookingStatus {
   pending_payment
   confirmed
   payment_failed
+  seat_lost
   cancelled
 }
 

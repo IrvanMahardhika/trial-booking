@@ -48,13 +48,13 @@ npm run dev
 ## What is implemented
 
 - **Data model** — parents, students, trial classes, bookings, payment attempts
-- **`BookingService`** — booking creation, mock payment, roster lookup, parent auth
+- **`BookingService`** — booking creation, mock payment, roster lookup, parent auth, `seat_lost` + refund stub for last-seat race
 - **Parent UI** — login, dashboard, book flow, booking status + mock payment
 - **Auth** — scrypt password hashing, JWT session cookies, and per-IP login rate limiting
 - **Admin roster** — confirmed students per class (UI + API)
 - **REST API** — same booking operations for curl/script verification
 - **Seed data** — all required demo edge cases
-- **Tests** — duplicate prevention, capacity, payment failure, last-seat race, JWT auth, login rate limiting
+- **Tests** — duplicate prevention, capacity, payment failure, last-seat race (`seat_lost`), JWT auth, login rate limiting
 
 ## Demo walkthrough (UI)
 
@@ -83,6 +83,7 @@ npm run dev
 3. On the booking page, try **Pay successfully** and **Simulate card declined**
 4. Open `/admin/roster` and confirm only `confirmed` bookings appear
 5. Sign in as `carla@example.com` and try booking Intro to Chemistry for Emma (duplicate — already has a pending booking)
+6. (Optional) Demo last-seat race on **Space Science** — sign in as two different parents, book the last seat for each, pay for both; the slower payer should see `seat_lost` with a refund message
 
 ## Seed highlights
 
@@ -115,7 +116,8 @@ Parent ──< Student ──< Booking >── TrialClass
 |---|---|
 | `pending_payment` | Booking created, awaiting payment |
 | `confirmed` | Paid and counted on roster |
-| `payment_failed` | Card declined, or seat lost at payment time |
+| `payment_failed` | Card declined before capture |
+| `seat_lost` | Payment captured but class was full at confirmation time; refund issued (last-seat race loser) |
 | `cancelled` | Reserved for future use (not implemented) |
 
 ### Key backend functions
@@ -123,9 +125,10 @@ Parent ──< Student ──< Booking >── TrialClass
 | Function | Purpose |
 |---|---|
 | `createBooking` / `createBookingForParent` | Create `pending_payment` booking with duplicate + capacity checks |
-| `completePayment` | Record payment attempt and confirm or fail inside a transaction |
+| `completePayment` | Record payment attempt and confirm, fail, or mark `seat_lost` inside a transaction |
 | `getClassRoster` | Return confirmed students for a class |
 | `authenticateParent` | Parent login (email + password, verified against scrypt hash) |
+| `refundPayment` | Mock refund hook when a captured payment cannot be confirmed (last-seat race) |
 
 ### API routes
 
@@ -150,7 +153,8 @@ Inside `completePayment` (transaction):
 
 1. Record the `PaymentAttempt`
 2. If payment failed → set booking to `payment_failed` (not on roster)
-3. If payment succeeded → re-count confirmed bookings; confirm only if capacity remains, otherwise set `payment_failed` (seat lost)
+3. If payment succeeded → re-count confirmed bookings; confirm if capacity remains
+4. If class is full at confirmation time → set `seat_lost`, call `refundPayment` stub, and keep the child off the roster
 
 ### Last-seat race
 
@@ -168,7 +172,7 @@ Inside `completePayment` (transaction):
 
 - Two users can both see "1 seat left" in the UI until one pays (UI is a hint, not the source of truth)
 - SQLite serializes writes, which handles the race for this demo; Postgres would need `SELECT … FOR UPDATE` or equivalent
-- Loser gets `payment_failed` rather than a distinct status like `seat_lost` — fine for scope, but production might differentiate
+- `seat_lost` uses a mock `refundPayment` stub — production would integrate with the real payment provider and track refund status separately
 
 ### Where checks live
 
@@ -177,7 +181,8 @@ Inside `completePayment` (transaction):
 | Duplicate child + class | Service query guard |
 | Capacity at booking time | Service (blocks if class already full) |
 | Capacity at payment time | Service transaction (last-seat race) |
-| Payment failure handling | Service transaction |
+| Payment failure handling | Service transaction (`payment_failed`) |
+| Last-seat loser handling | Service transaction (`seat_lost` + `refundPayment` stub) |
 | Class appears full in UI | UI disables full classes in dropdown |
 | Form and API input validation | Zod schemas in `src/lib/schemas.ts` (login, booking create, payment) |
 | Roster accuracy | Service — only `confirmed` bookings returned |
@@ -213,9 +218,9 @@ Inside `completePayment` (transaction):
 
 ## Assumptions
 
-- Trial classes only — no regular enrollment, refunds, or cancellations
+- Trial classes only — no regular enrollment or cancellations
 - One parent account per login; children belong to exactly one parent
-- Mock payment with a boolean success/fail — no real payment gateway
+- Mock payment with a boolean success/fail — no real payment gateway; `refundPayment` is a stub log message only
 - Parent passwords are hashed with scrypt; sessions use signed JWT cookies — still demo-grade, not production OAuth or token revocation
 - Login rate limiting is in-memory per server process — not suitable for multi-instance production
 - Admin roster is open (no auth) for easy demo access
@@ -233,7 +238,8 @@ Inside `completePayment` (transaction):
 ## What I would monitor after release
 
 - **Overbooking incidents** — alert if any class has more than 4 `confirmed` bookings
-- **Payment failure rate** — spike may indicate gateway issues or last-seat races
+- **Payment failure rate** — spike may indicate gateway issues
+- **`seat_lost` rate** — count of last-seat race losers; pairs with refund success monitoring
 - **`pending_payment` staleness** — bookings stuck awaiting payment beyond N minutes
 - **Duplicate booking attempts** — count of `DUPLICATE_BOOKING` errors (UX friction signal)
 - **Roster vs capacity** — daily check that confirmed count ≤ capacity per class
@@ -241,7 +247,7 @@ Inside `completePayment` (transaction):
 ## What I would do next
 
 - Add a partial unique index for active bookings per student + class
-- Use `seat_lost` vs `payment_failed` for clearer parent messaging
+- Integrate real payment/refund webhooks with idempotent refund tracking
 - Move login rate limits to Redis and add JWT revocation / sign-out-all-devices
 - Protect admin routes with role-based auth
 - Add E2E tests for the parent booking flow
@@ -262,4 +268,4 @@ npm run build
 - ~1.5h — schema, `BookingService`, seed data, edge-case tests
 - ~1h — API routes and error handling
 - ~1h — parent UI, login, admin roster, Ottodot styling
-- ~0.5h — login/debug fixes, README, and verification
+- ~0.5h — auth hardening, `seat_lost`/refund stub, login fixes, README, and verification

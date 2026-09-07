@@ -148,7 +148,7 @@ describe("BookingService", () => {
     });
 
     expect(winner.status).toBe(BookingStatus.confirmed);
-    expect(loser.status).toBe(BookingStatus.payment_failed);
+    expect(loser.status).toBe(BookingStatus.seat_lost);
 
     const roster = await bookingService.getClassRoster(trialClass.id);
     expect(roster.confirmedStudents).toHaveLength(4);
