@@ -1,8 +1,8 @@
 # Ottodot Trial Booking
 
-**This directory is the project root.** Clone or submit this repo as-is (`trial-booking/`); the parent `ottodot/` folder is only a local workspace wrapper.
+A minimal TypeScript full-stack slice for Ottodot's trial booking take-home. Parents can book and pay for a trial class; teachers can view the confirmed roster. The focus is on booking invariants, payment edge cases, and the last-seat race.
 
-A minimal TypeScript full-stack slice for Ottodot's trial booking take-home. Focus is on booking invariants, payment edge cases, and the last-seat race.
+**Repo:** https://github.com/IrvanMahardhika/trial-booking
 
 ## Stack
 
@@ -15,8 +15,12 @@ A minimal TypeScript full-stack slice for Ottodot's trial booking take-home. Foc
 
 ```bash
 npm install
+cp .env.example .env
 npm run db:setup
+npm run dev
 ```
+
+Open `http://localhost:3000/login` (use the port shown in your terminal if 3000 is taken).
 
 `db:setup` generates the Prisma client, applies the schema, and runs the seed script.
 
@@ -34,15 +38,47 @@ npm run dev
 |---|---|
 | `npm run dev` | Start the Next.js dev server |
 | `npm test` | Run booking service tests |
+| `npm run build` | Production build + typecheck |
 | `npm run db:setup` | Generate client, push schema, seed data |
 | `npm run db:seed` | Re-run seed only |
 
 ## What is implemented
 
-- Prisma schema for parents, students, trial classes, bookings, and payment attempts
-- `BookingService` with booking creation, mock payment completion, and roster lookup
-- Seed data covering available seats, nearly-full class, duplicate scenario, and payment failure
-- Vitest coverage for duplicate prevention, capacity limits, payment failure, and last-seat race
+- **Data model** — parents, students, trial classes, bookings, payment attempts
+- **`BookingService`** — booking creation, mock payment, roster lookup, parent auth
+- **Parent UI** — login, dashboard, book flow, booking status + mock payment
+- **Admin roster** — confirmed students per class (UI + API)
+- **REST API** — same booking operations for curl/script verification
+- **Seed data** — all required demo edge cases
+- **Tests** — duplicate prevention, capacity, payment failure, last-seat race
+
+## Demo walkthrough (UI)
+
+### Parent accounts
+
+| Email | Password | Children |
+|---|---|---|
+| `alice@example.com` | `demo123` | Linh Nguyen, Minh Nguyen |
+| `bob@example.com` | `demo123` | Sofia Santos, Diego Santos |
+| `carla@example.com` | `demo123` | Emma Ortiz |
+
+### Pages
+
+| Path | Description |
+|---|---|
+| `/login` | Sign in with email and password |
+| `/` | Parent dashboard — children, bookings, available classes |
+| `/book` | Book a trial class for a child |
+| `/bookings/:id` | Booking status and mock payment (success / card declined) |
+| `/admin/roster` | Teacher/admin view of confirmed rosters (no login required) |
+
+### Suggested demo flow
+
+1. Sign in as `alice@example.com`
+2. Book a class for one of Alice's children
+3. On the booking page, try **Pay successfully** and **Simulate card declined**
+4. Open `/admin/roster` and confirm only `confirmed` bookings appear
+5. Sign in as `carla@example.com` and try booking Intro to Chemistry for Emma (duplicate — already has a pending booking)
 
 ## Seed highlights
 
@@ -51,104 +87,144 @@ After seeding:
 - **Intro to Chemistry** — empty class with 4 available seats
 - **Fractions Fun** — exactly 3 confirmed students (1 seat left)
 - **Space Science** — 3 confirmed students (1 seat left) for last-seat race demos
-- **Intro to Chemistry** — Emma Ortiz already has a `pending_payment` booking for duplicate-booking demos
+- **Intro to Chemistry** — Emma Ortiz already has a `pending_payment` booking (duplicate demo)
 - **Plant Biology** — Minh Nguyen has a `payment_failed` booking not on the roster
 
-## Backend notes (summary)
+## Architecture and backend design
+
+### Data model
+
+```
+Parent ──< Student ──< Booking >── TrialClass
+                         │
+                         └──< PaymentAttempt
+```
+
+- **Parent / Student** — who is booking for whom
+- **TrialClass** — scheduled class with `capacity` (default 4)
+- **Booking** — links a student to a class with a status
+- **PaymentAttempt** — audit log of each mock payment try
 
 ### Booking statuses
 
-- `pending_payment` — created, awaiting payment
-- `confirmed` — paid and counted on roster
-- `payment_failed` — payment declined or seat lost at payment time
-- `cancelled` — reserved for future use
+| Status | Meaning |
+|---|---|
+| `pending_payment` | Booking created, awaiting payment |
+| `confirmed` | Paid and counted on roster |
+| `payment_failed` | Card declined, or seat lost at payment time |
+| `cancelled` | Reserved for future use (not implemented) |
 
-### Last-seat race approach
+### Key backend functions
 
-Both users may reach `pending_payment` for the final seat. Confirmation happens inside a database transaction that:
+| Function | Purpose |
+|---|---|
+| `createBooking` / `createBookingForParent` | Create `pending_payment` booking with duplicate + capacity checks |
+| `completePayment` | Record payment attempt and confirm or fail inside a transaction |
+| `getClassRoster` | Return confirmed students for a class |
+| `authenticateParent` | Demo login (email + password) |
 
-1. records the payment attempt
-2. counts current `confirmed` bookings for the class
-3. confirms only if capacity remains
+### API routes
 
-SQLite serializes concurrent transactions, so only one late payer can win the last seat.
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/trial-classes` | List classes with seat availability |
+| `GET` | `/api/students` | List students |
+| `POST` | `/api/bookings` | Create booking (requires parent session cookie) |
+| `GET` | `/api/bookings/:id` | Get booking status |
+| `POST` | `/api/bookings/:id/pay` | Submit mock payment |
+| `GET` | `/api/trial-classes/:id/roster` | Confirmed roster |
+
+### How duplicate bookings are prevented
+
+On `createBooking`, the service checks for an existing booking with the same `studentId` + `trialClassId` in `pending_payment` or `confirmed` status. If found, it throws `DUPLICATE_BOOKING`.
+
+This is an application-level guard, not a DB unique constraint. Two concurrent requests could theoretically both pass the check before either inserts — acceptable for this take-home; production would add a partial unique index or serializable isolation.
+
+### How payment failure is handled
+
+Inside `completePayment` (transaction):
+
+1. Record the `PaymentAttempt`
+2. If payment failed → set booking to `payment_failed` (not on roster)
+3. If payment succeeded → re-count confirmed bookings; confirm only if capacity remains, otherwise set `payment_failed` (seat lost)
+
+### Last-seat race
+
+**Scenario:** User A and User B both reach `pending_payment` for the last seat. User B pays first and confirms. User A then pays.
+
+**Approach:** Allow both to hold `pending_payment`, but confirm only inside a transaction that re-counts `confirmed` bookings at payment time.
+
+**Why this approach:**
+
+- Matches real payment flows — a user can be "in checkout" while the seat is not yet committed
+- Keeps the invariant at the point that matters: confirmation, not selection
+- Simple to implement with Prisma `$transaction` on SQLite
+
+**Tradeoffs accepted:**
+
+- Two users can both see "1 seat left" in the UI until one pays (UI is a hint, not the source of truth)
+- SQLite serializes writes, which handles the race for this demo; Postgres would need `SELECT … FOR UPDATE` or equivalent
+- Loser gets `payment_failed` rather than a distinct status like `seat_lost` — fine for scope, but production might differentiate
 
 ### Where checks live
 
 | Concern | Layer |
 |---|---|
-| Duplicate child + class | Service + query guard |
-| Capacity at payment time | Service transaction |
+| Duplicate child + class | Service query guard |
+| Capacity at booking time | Service (blocks if class already full) |
+| Capacity at payment time | Service transaction (last-seat race) |
 | Payment failure handling | Service transaction |
-| Class appears full in UI | UI hint only (not implemented yet) |
+| Class appears full in UI | UI disables full classes in dropdown |
+| Roster accuracy | Service — only `confirmed` bookings returned |
 
-## Pages
+## Assumptions
 
-After `npm run dev`, open `http://localhost:3000/login`.
+- Trial classes only — no regular enrollment, refunds, or cancellations
+- One parent account per login; children belong to exactly one parent
+- Mock payment with a boolean success/fail — no real payment gateway
+- Demo passwords stored in plain text in SQLite — not production-ready
+- Admin roster is open (no auth) for easy demo access
+- Singapore timezone formatting for display (`en-SG`)
 
-| Path | Description |
-|---|---|
-| `/login` | Sign in with email and password |
-| `/` | Parent dashboard — children, bookings, available classes |
-| `/book` | Book a trial class for a child |
-| `/bookings/:id` | Booking status and mock payment |
-| `/admin/roster` | Teacher/admin view of confirmed rosters |
+## What I deliberately cut
 
-### Demo parent accounts
+- Real auth (OAuth, password hashing, session expiry)
+- Email notifications and payment webhooks
+- Cancellation, rescheduling, waitlists
+- DB-level unique constraints and migration files (used `db push` for speed)
+- E2E browser tests (service-level tests cover invariants)
+- Regular enrollment, billing plans, teacher assignment
 
-Sign in at `/login` with any of these seed parent accounts:
+## What I would monitor after release
 
-| Email | Password | Children |
-|---|---|---|
-| `alice@example.com` | `demo123` | Linh Nguyen, Minh Nguyen |
-| `bob@example.com` | `demo123` | Sofia Santos, Diego Santos |
-| `carla@example.com` | `demo123` | Emma Ortiz |
+- **Overbooking incidents** — alert if any class has more than 4 `confirmed` bookings
+- **Payment failure rate** — spike may indicate gateway issues or last-seat races
+- **`pending_payment` staleness** — bookings stuck awaiting payment beyond N minutes
+- **Duplicate booking attempts** — count of `DUPLICATE_BOOKING` errors (UX friction signal)
+- **Roster vs capacity** — daily check that confirmed count ≤ capacity per class
 
-### Admin roster
+## What I would do next
 
-Open `/admin/roster` to view confirmed students per trial class. This page is intended for teachers or ops staff and does not require parent login. It shows only `confirmed` bookings — pending or failed payments are excluded.
+- Add a partial unique index for active bookings per student + class
+- Use `seat_lost` vs `payment_failed` for clearer parent messaging
+- Hash passwords and add proper session management
+- Protect admin routes with role-based auth
+- Add E2E tests for the parent booking flow
+- Move to Postgres with row-level locking for payment confirmation
 
-You can also reach the admin roster from the parent app header after signing in.
-
-## API routes
-
-After `npm run dev`, the booking flow can be exercised via HTTP:
-
-| Method | Path | Description |
-|---|---|---|
-| `GET` | `/api/trial-classes` | List trial classes with seat availability |
-| `GET` | `/api/students` | List students (children) |
-| `POST` | `/api/bookings` | Create booking (`{ "studentId", "trialClassId" }`) |
-| `GET` | `/api/bookings/:id` | Get booking status |
-| `POST` | `/api/bookings/:id/pay` | Submit mock payment (`{ "shouldSucceed": true \| false }`) |
-| `GET` | `/api/trial-classes/:id/roster` | Admin/teacher confirmed roster |
-
-Copy `.env.example` to `.env` before running setup.
-
-### Example flow
+## Verification
 
 ```bash
-# List classes and students
-curl http://localhost:3000/api/trial-classes
-curl http://localhost:3000/api/students
-
-# Book and pay
-curl -X POST http://localhost:3000/api/bookings \
-  -H 'Content-Type: application/json' \
-  -d '{"studentId":"<student-id>","trialClassId":"<class-id>"}'
-
-curl -X POST http://localhost:3000/api/bookings/<booking-id>/pay \
-  -H 'Content-Type: application/json' \
-  -d '{"shouldSucceed":true}'
-
-curl http://localhost:3000/api/bookings/<booking-id>
-curl http://localhost:3000/api/trial-classes/<class-id>/roster
+npm run db:setup
+npm test        # 5 tests
+npm run build
 ```
-
-## Next steps
-
-- README design section expansion (assumptions, monitoring, time spent)
 
 ## Time spent
 
-_Scaffold only — update before submission._
+~4 hours (within the suggested 3–4 hour timebox):
+
+- ~1.5h — schema, `BookingService`, seed data, edge-case tests
+- ~1h — API routes and error handling
+- ~1h — parent UI, login, admin roster, Ottodot styling
+- ~0.5h — login/debug fixes, README, and verification
