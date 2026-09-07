@@ -12,7 +12,8 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   }
 
   const params = await searchParams;
-  const hasError = params.error === "invalid";
+  const hasInvalidCredentials = params.error === "invalid";
+  const isRateLimited = params.error === "rate_limited";
 
   return (
     <div className="relative flex min-h-full flex-1 flex-col">
@@ -47,7 +48,13 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
             </p>
           </div>
 
-          {hasError ? (
+          {isRateLimited ? (
+            <p className="mb-5 rounded-2xl border border-danger/20 bg-red-50 px-4 py-3 text-sm text-danger">
+              Too many sign-in attempts. Please wait 15 minutes and try again.
+            </p>
+          ) : null}
+
+          {hasInvalidCredentials ? (
             <p className="mb-5 rounded-2xl border border-danger/20 bg-red-50 px-4 py-3 text-sm text-danger">
               Invalid email or password. Please try again.
             </p>

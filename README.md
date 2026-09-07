@@ -47,10 +47,11 @@ npm run dev
 - **Data model** — parents, students, trial classes, bookings, payment attempts
 - **`BookingService`** — booking creation, mock payment, roster lookup, parent auth
 - **Parent UI** — login, dashboard, book flow, booking status + mock payment
+- **Auth** — scrypt password hashing and per-IP login rate limiting
 - **Admin roster** — confirmed students per class (UI + API)
 - **REST API** — same booking operations for curl/script verification
 - **Seed data** — all required demo edge cases
-- **Tests** — duplicate prevention, capacity, payment failure, last-seat race
+- **Tests** — duplicate prevention, capacity, payment failure, last-seat race, login rate limiting
 
 ## Demo walkthrough (UI)
 
@@ -121,7 +122,7 @@ Parent ──< Student ──< Booking >── TrialClass
 | `createBooking` / `createBookingForParent` | Create `pending_payment` booking with duplicate + capacity checks |
 | `completePayment` | Record payment attempt and confirm or fail inside a transaction |
 | `getClassRoster` | Return confirmed students for a class |
-| `authenticateParent` | Demo login (email + password) |
+| `authenticateParent` | Parent login (email + password, verified against scrypt hash) |
 
 ### API routes
 
@@ -177,18 +178,34 @@ Inside `completePayment` (transaction):
 | Class appears full in UI | UI disables full classes in dropdown |
 | Roster accuracy | Service — only `confirmed` bookings returned |
 
+### Auth and security
+
+**Password hashing**
+
+- Demo parent passwords are hashed with Node's built-in `scrypt` before storage (`src/lib/password.ts`)
+- Seed data stores hashes, not plain text; parents still sign in with `demo123` in the UI
+- `authenticateParent` compares submitted passwords with `verifyPassword` using constant-time comparison
+
+**Login rate limiting**
+
+- `loginAsParent` limits failed sign-in attempts per client IP
+- **5 failed attempts per 15 minutes** → redirects to `/login?error=rate_limited`
+- Successful login clears the counter for that IP
+- In-memory store (`src/lib/rate-limit.ts`) — fine for this demo/single-server setup; production would use a shared store such as Redis
+
 ## Assumptions
 
 - Trial classes only — no regular enrollment, refunds, or cancellations
 - One parent account per login; children belong to exactly one parent
 - Mock payment with a boolean success/fail — no real payment gateway
-- Demo passwords stored in plain text in SQLite — not production-ready
+- Parent passwords are hashed with scrypt, but sessions are simple cookie-based — not production-ready auth
+- Login rate limiting is in-memory per server process — not suitable for multi-instance production
 - Admin roster is open (no auth) for easy demo access
 - Singapore timezone formatting for display (`en-SG`)
 
 ## What I deliberately cut
 
-- Real auth (OAuth, password hashing, session expiry)
+- Real auth (OAuth, session expiry, shared rate-limit store)
 - Email notifications and payment webhooks
 - Cancellation, rescheduling, waitlists
 - DB-level unique constraints and migration files (used `db push` for speed)
@@ -207,7 +224,7 @@ Inside `completePayment` (transaction):
 
 - Add a partial unique index for active bookings per student + class
 - Use `seat_lost` vs `payment_failed` for clearer parent messaging
-- Hash passwords and add proper session management
+- Add proper session management (expiry, rotation) and move login rate limits to Redis
 - Protect admin routes with role-based auth
 - Add E2E tests for the parent booking flow
 - Move to Postgres with row-level locking for payment confirmation
@@ -216,7 +233,7 @@ Inside `completePayment` (transaction):
 
 ```bash
 npm run db:setup
-npm test        # 5 tests
+npm test        # 9 tests
 npm run build
 ```
 
