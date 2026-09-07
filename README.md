@@ -9,6 +9,7 @@ A minimal TypeScript full-stack slice for Ottodot's trial booking take-home. Par
 - Next.js (App Router)
 - TypeScript
 - Prisma + SQLite
+- JWT auth (`jose`)
 - Vitest
 
 ## Setup
@@ -19,6 +20,8 @@ cp .env.example .env
 npm run db:setup
 npm run dev
 ```
+
+Set `JWT_SECRET` in `.env` to a long random string before running locally (`.env.example` includes a dev placeholder).
 
 Open `http://localhost:3000/login` (use the port shown in your terminal if 3000 is taken).
 
@@ -36,8 +39,8 @@ npm run dev
 
 | Command | Description |
 |---|---|
-| `npm run dev` | Start the Next.js dev server |
-| `npm test` | Run booking service tests |
+| `npm run dev` | Generate Prisma client and start the Next.js dev server |
+| `npm test` | Run service, auth, and rate-limit tests |
 | `npm run build` | Production build + typecheck |
 | `npm run db:setup` | Generate client, push schema, seed data |
 | `npm run db:seed` | Re-run seed only |
@@ -47,11 +50,11 @@ npm run dev
 - **Data model** — parents, students, trial classes, bookings, payment attempts
 - **`BookingService`** — booking creation, mock payment, roster lookup, parent auth
 - **Parent UI** — login, dashboard, book flow, booking status + mock payment
-- **Auth** — scrypt password hashing and per-IP login rate limiting
+- **Auth** — scrypt password hashing, JWT session cookies, and per-IP login rate limiting
 - **Admin roster** — confirmed students per class (UI + API)
 - **REST API** — same booking operations for curl/script verification
 - **Seed data** — all required demo edge cases
-- **Tests** — duplicate prevention, capacity, payment failure, last-seat race, login rate limiting
+- **Tests** — duplicate prevention, capacity, payment failure, last-seat race, JWT auth, login rate limiting
 
 ## Demo walkthrough (UI)
 
@@ -130,7 +133,7 @@ Parent ──< Student ──< Booking >── TrialClass
 |---|---|---|
 | `GET` | `/api/trial-classes` | List classes with seat availability |
 | `GET` | `/api/students` | List students |
-| `POST` | `/api/bookings` | Create booking (requires parent session cookie) |
+| `POST` | `/api/bookings` | Create booking (requires `parent_session` cookie) |
 | `GET` | `/api/bookings/:id` | Get booking status |
 | `POST` | `/api/bookings/:id/pay` | Submit mock payment |
 | `GET` | `/api/trial-classes/:id/roster` | Confirmed roster |
@@ -193,19 +196,33 @@ Inside `completePayment` (transaction):
 - Successful login clears the counter for that IP
 - In-memory store (`src/lib/rate-limit.ts`) — fine for this demo/single-server setup; production would use a shared store such as Redis
 
+**JWT session cookie (`parent_session`)**
+
+- On login, `src/lib/jwt.ts` signs a JWT with **HS256** using `JWT_SECRET`
+- Payload uses `sub` for the parent ID and `exp` for a **24-hour** expiry
+- The cookie stores the signed JWT — not the parent’s database ID
+- Each request verifies the JWT in `src/lib/auth.ts` before loading the parent profile
+- **Logout** clears the cookie; tokens are stateless (no server-side session table)
+- Cookie flags: `httpOnly`, `sameSite: lax`, `path: /`, `maxAge` aligned with JWT expiry
+
+**JWT tradeoffs accepted for this demo**
+
+- Tokens cannot be revoked before expiry without a blocklist or server-side session store
+- `JWT_SECRET` must be kept private and rotated carefully in production
+
 ## Assumptions
 
 - Trial classes only — no regular enrollment, refunds, or cancellations
 - One parent account per login; children belong to exactly one parent
 - Mock payment with a boolean success/fail — no real payment gateway
-- Parent passwords are hashed with scrypt, but sessions are simple cookie-based — not production-ready auth
+- Parent passwords are hashed with scrypt; sessions use signed JWT cookies — still demo-grade, not production OAuth or token revocation
 - Login rate limiting is in-memory per server process — not suitable for multi-instance production
 - Admin roster is open (no auth) for easy demo access
 - Singapore timezone formatting for display (`en-SG`)
 
 ## What I deliberately cut
 
-- Real auth (OAuth, session expiry, shared rate-limit store)
+- Real auth (OAuth, refresh tokens, JWT revocation/blocklist, shared rate-limit store)
 - Email notifications and payment webhooks
 - Cancellation, rescheduling, waitlists
 - DB-level unique constraints and migration files (used `db push` for speed)
@@ -224,7 +241,7 @@ Inside `completePayment` (transaction):
 
 - Add a partial unique index for active bookings per student + class
 - Use `seat_lost` vs `payment_failed` for clearer parent messaging
-- Add proper session management (expiry, rotation) and move login rate limits to Redis
+- Move login rate limits to Redis and add JWT revocation / sign-out-all-devices
 - Protect admin routes with role-based auth
 - Add E2E tests for the parent booking flow
 - Move to Postgres with row-level locking for payment confirmation
@@ -233,7 +250,7 @@ Inside `completePayment` (transaction):
 
 ```bash
 npm run db:setup
-npm test        # 9 tests
+npm test        # 12 tests
 npm run build
 ```
 

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { BookingStatus } from "@prisma/client";
+import { BookingStatus } from "@/generated/prisma";
 import { BookingService } from "@/lib/booking-service";
 import { prisma } from "@/lib/db";
 import { hashPassword } from "@/lib/password";

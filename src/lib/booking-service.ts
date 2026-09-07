@@ -1,4 +1,4 @@
-import { BookingStatus, type Booking, type PrismaClient } from "@prisma/client";
+import { BookingStatus, type Booking, type PrismaClient } from "@/generated/prisma";
 import { BookingError } from "@/lib/errors";
 import { mockPayment, type PaymentResult } from "@/lib/payment";
 import { verifyPassword } from "@/lib/password";

@@ -1,4 +1,4 @@
-import { BookingStatus, PrismaClient } from "@prisma/client";
+import { BookingStatus, PrismaClient } from "../src/generated/prisma";
 import { hashPassword } from "../src/lib/password";
 
 const prisma = new PrismaClient();

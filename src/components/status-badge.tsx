@@ -1,4 +1,4 @@
-import type { BookingStatus } from "@prisma/client";
+import type { BookingStatus } from "@/generated/prisma";
 import { formatStatusLabel } from "@/lib/format";
 
 const STATUS_STYLES: Record<BookingStatus, string> = {

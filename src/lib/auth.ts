@@ -1,12 +1,27 @@
 import { cookies } from "next/headers";
 import { BookingError } from "@/lib/errors";
+import {
+  PARENT_SESSION_MAX_AGE_SECONDS,
+  signParentToken,
+  verifyParentToken,
+} from "@/lib/jwt";
 import { bookingService } from "@/lib/services";
 
+export { PARENT_SESSION_MAX_AGE_SECONDS };
 export const PARENT_SESSION_COOKIE = "parent_session";
 
-export async function getSessionParentId(): Promise<string | null> {
+async function getSessionToken(): Promise<string | null> {
   const cookieStore = await cookies();
   return cookieStore.get(PARENT_SESSION_COOKIE)?.value ?? null;
+}
+
+export async function getSessionParentId(): Promise<string | null> {
+  const token = await getSessionToken();
+  if (!token) {
+    return null;
+  }
+
+  return verifyParentToken(token);
 }
 
 export async function getSessionParent() {
@@ -31,11 +46,14 @@ export async function requireSessionParent() {
 }
 
 export async function setParentSession(parentId: string) {
+  const token = await signParentToken(parentId);
   const cookieStore = await cookies();
-  cookieStore.set(PARENT_SESSION_COOKIE, parentId, {
+
+  cookieStore.set(PARENT_SESSION_COOKIE, token, {
     httpOnly: true,
     path: "/",
     sameSite: "lax",
+    maxAge: PARENT_SESSION_MAX_AGE_SECONDS,
   });
 }
 
