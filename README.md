@@ -20,6 +20,14 @@ npm run db:setup
 
 `db:setup` generates the Prisma client, applies the schema, and runs the seed script.
 
+If login fails after a schema change, regenerate the client and restart the dev server:
+
+```bash
+npm run db:generate
+# stop any running `npm run dev`, then start it again
+npm run dev
+```
+
 ## Scripts
 
 | Command | Description |
