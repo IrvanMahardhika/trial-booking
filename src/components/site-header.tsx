@@ -25,9 +25,6 @@ export function SiteHeader({ parentName, parentEmail }: SiteHeaderProps) {
           <Link href="/book" className="text-foreground hover:text-brand">
             Book trial
           </Link>
-          <Link href="/admin/roster" className="text-foreground hover:text-brand">
-            Admin roster
-          </Link>
           <form action={logoutParent}>
             <button
               type="submit"
