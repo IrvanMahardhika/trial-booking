@@ -1,6 +1,6 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { loginAsParent } from "@/app/login/actions";
+import { OttodotLogo } from "@/components/ottodot-logo";
 import { getSessionParent } from "@/lib/auth";
 
 type LoginPageProps = PageProps<"/login">;
@@ -28,9 +28,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 
       <header className="relative z-10 border-b border-border/80 bg-card/80 backdrop-blur-sm">
         <div className="mx-auto flex max-w-5xl items-center px-4 py-4 sm:px-6">
-          <Link href="/login" className="font-display text-2xl font-bold tracking-tight text-foreground">
-            Ottodot
-          </Link>
+          <OttodotLogo href="/login" priority />
         </div>
       </header>
 

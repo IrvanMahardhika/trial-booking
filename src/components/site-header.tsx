@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { logoutParent } from "@/app/login/actions";
+import { OttodotLogo } from "@/components/ottodot-logo";
 
 type SiteHeaderProps = {
   parentName: string;
@@ -11,9 +12,7 @@ export function SiteHeader({ parentName, parentEmail }: SiteHeaderProps) {
     <header className="border-b border-border bg-card/90 backdrop-blur-sm">
       <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
         <div>
-          <Link href="/" className="font-display text-xl font-bold text-foreground">
-            Ottodot
-          </Link>
+          <OttodotLogo />
           <p className="text-sm text-muted">
             Signed in as {parentName} ({parentEmail})
           </p>

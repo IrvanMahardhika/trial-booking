@@ -17,6 +17,11 @@ const fraunces = Fraunces({
 export const metadata: Metadata = {
   title: "Ottodot Trial Booking",
   description: "Book and manage trial class bookings for Ottodot",
+  icons: {
+    icon: [{ url: "/icon.png", type: "image/png" }],
+    shortcut: "/favicon.ico",
+    apple: "/icon.png",
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
